@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -20,9 +21,20 @@ func main() {
 	var b *tb.Bot
 	var err error
 
+	users := strings.Split(os.Getenv("ALLOWED_USERS"), ",")
+
+	poller := &tb.LongPoller{Timeout: 15 * time.Second}
+	authMiddlewarePoller := tb.NewMiddlewarePoller(poller, func(upd *tb.Update) bool {
+		if contains(users, upd.Message.Sender.Username) {
+			return true
+		}
+		b.Send(upd.Message.Sender, "Я тебя не знаю. Иди нахуй")
+		return false
+	})
+
 	b, err = tb.NewBot(tb.Settings{
 		Token:   os.Getenv("TELEGRAM_API_TOKEN"),
-		Poller:  &tb.LongPoller{Timeout: 15 * time.Second},
+		Poller:  authMiddlewarePoller,
 		Verbose: true,
 	})
 
@@ -62,4 +74,13 @@ func send(b *tb.Bot, attach interface{}) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func contains(slice []string, val string) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }
